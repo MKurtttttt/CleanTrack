@@ -1,0 +1,60 @@
+<nav class="navbar">
+  <div class="nav-container">
+    <div class="nav-brand">
+      <h1>CleanTrack</h1>
+      <span class="tagline">Malabanias Waste Reporting</span>
+    </div>
+    
+    <div class="nav-menu">
+      <a 
+        routerLink="/report" 
+        routerLinkActive="active"
+        class="nav-item"
+        [class.current]="isCurrentRoute('/report')"
+      >
+        <span class="nav-icon">Report</span>
+        <span class="nav-text">Report</span>
+      </a>
+      
+      <a 
+        routerLink="/dashboard" 
+        routerLinkActive="active"
+        class="nav-item"
+        [class.current]="isCurrentRoute('/dashboard')"
+      >
+        <span class="nav-icon">Dashboard</span>
+        <span class="nav-text">Dashboard</span>
+      </a>
+      
+      <a 
+        routerLink="/map" 
+        routerLinkActive="active"
+        class="nav-item"
+        [class.current]="isCurrentRoute('/map')"
+      >
+        <span class="nav-icon">Map</span>
+        <span class="nav-text">Map View</span>
+      </a>
+      
+      <a 
+        routerLink="/reports" 
+        routerLinkActive="active"
+        class="nav-item"
+        [class.current]="isCurrentRoute('/reports')"
+      >
+        <span class="nav-icon">Reports</span>
+        <span class="nav-text">All Reports</span>
+      </a>
+      
+      <a 
+        routerLink="/notifications" 
+        routerLinkActive="active"
+        class="nav-item"
+        [class.current]="isCurrentRoute('/notifications')"
+      >
+        <span class="nav-icon">Notifications</span>
+        <span class="nav-text">Notifications</span>
+      </a>
+    </div>
+  </div>
+</nav>
