@@ -52,7 +52,12 @@ export const routes: Routes = [
   },
   { 
     path: 'resident/reports', 
-    loadComponent: () => import('./components/report-list/report-list').then(m => m.ReportList),
+    redirectTo: '/resident/report',
+    pathMatch: 'full'
+  },
+  { 
+    path: 'resident/map', 
+    loadComponent: () => import('./components/map-view/map-view').then(m => m.MapView),
     canActivate: [ResidentGuard]
   },
   { 

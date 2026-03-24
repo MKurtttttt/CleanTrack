@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReportService } from '../../services/report';
 import { WasteReport, ReportStatus, WasteCategory } from '../../models/waste-report.model';
+import { AuthService } from '../../services/auth.service';
+import { Subscription, interval } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard',
@@ -10,7 +12,7 @@ import { WasteReport, ReportStatus, WasteCategory } from '../../models/waste-rep
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
 })
-export class Dashboard implements OnInit {
+export class Dashboard implements OnInit, OnDestroy {
   reports: WasteReport[] = [];
   stats = {
     total: 0,
@@ -19,18 +21,45 @@ export class Dashboard implements OnInit {
     resolved: 0,
     urgent: 0
   };
+  currentUser: any;
+  isAdmin = false;
+  private refreshSubscription: Subscription | null = null;
 
-  constructor(private reportService: ReportService) {}
+  constructor(
+    private reportService: ReportService,
+    private authService: AuthService
+  ) {}
 
   ngOnInit() {
+    this.currentUser = this.authService.getCurrentUser();
+    this.isAdmin = this.currentUser?.role === 'ADMIN' || this.currentUser?.role === 'BARANGAY_OFFICIAL';
     this.loadReports();
+    // Set up auto-refresh every 30 seconds for real-time updates
+    this.refreshSubscription = interval(30000).subscribe(() => {
+      this.loadReports();
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.refreshSubscription) {
+      this.refreshSubscription.unsubscribe();
+    }
   }
 
   loadReports() {
-    this.reportService.getReports().subscribe(data => {
-      this.reports = data;
-      this.calculateStats();
-    });
+    if (this.isAdmin) {
+      // Load admin dashboard data
+      this.reportService.getAdminDashboard().subscribe(data => {
+        this.reports = data.recentReports || [];
+        this.stats = data.stats || this.stats;
+      });
+    } else {
+      // Load resident reports
+      this.reportService.getReports().subscribe(data => {
+        this.reports = data;
+        this.calculateStats();
+      });
+    }
   }
 
   calculateStats() {

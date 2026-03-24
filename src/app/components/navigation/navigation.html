@@ -7,50 +7,50 @@
     
     <div class="nav-menu">
       <a 
-        routerLink="/report" 
+        [routerLink]="getReportRoute()" 
         routerLinkActive="active"
         class="nav-item"
-        [class.current]="isCurrentRoute('/report')"
+        [class.current]="isCurrentRoute(getReportRoute())"
       >
         <span class="nav-icon">Report</span>
         <span class="nav-text">Report</span>
       </a>
       
       <a 
-        routerLink="/dashboard" 
+        [routerLink]="getDashboardRoute()" 
         routerLinkActive="active"
         class="nav-item"
-        [class.current]="isCurrentRoute('/dashboard')"
+        [class.current]="isCurrentRoute(getDashboardRoute())"
       >
         <span class="nav-icon">Dashboard</span>
         <span class="nav-text">Dashboard</span>
       </a>
       
       <a 
-        routerLink="/map" 
+        [routerLink]="getMapRoute()" 
         routerLinkActive="active"
         class="nav-item"
-        [class.current]="isCurrentRoute('/map')"
+        [class.current]="isCurrentRoute(getMapRoute())"
       >
         <span class="nav-icon">Map</span>
         <span class="nav-text">Map View</span>
       </a>
       
       <a 
-        routerLink="/reports" 
+        [routerLink]="getReportsRoute()" 
         routerLinkActive="active"
         class="nav-item"
-        [class.current]="isCurrentRoute('/reports')"
+        [class.current]="isCurrentRoute(getReportsRoute())"
       >
         <span class="nav-icon">Reports</span>
         <span class="nav-text">All Reports</span>
       </a>
       
       <a 
-        routerLink="/notifications" 
+        [routerLink]="getNotificationsRoute()" 
         routerLinkActive="active"
         class="nav-item"
-        [class.current]="isCurrentRoute('/notifications')"
+        [class.current]="isCurrentRoute(getNotificationsRoute())"
       >
         <span class="nav-icon">Notifications</span>
         <span class="nav-text">Notifications</span>

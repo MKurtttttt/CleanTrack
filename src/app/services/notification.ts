@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable, of, Subject } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, Subject, map } from 'rxjs';
 import { NotificationType } from '../models/waste-report.model';
 
 export interface AppNotification {
@@ -17,18 +18,19 @@ export interface AppNotification {
   providedIn: 'root',
 })
 export class NotificationService {
-  private notifications: AppNotification[] = [];
+  private readonly apiUrl = 'http://localhost:5000/api/notifications';
   private notificationSubject = new Subject<AppNotification>();
-  private nextId = 1;
 
-  constructor() { }
+  constructor(private http: HttpClient) {}
 
   getNotifications(): Observable<AppNotification[]> {
-    return of(this.notifications);
+    return this.http
+      .get<any>(this.apiUrl, { headers: this.authHeaders })
+      .pipe(map((response) => (response?.notifications || []).map((n: any) => this.normalizeNotification(n))));
   }
 
   getUnreadNotifications(): Observable<AppNotification[]> {
-    return of(this.notifications.filter(n => !n.read));
+    return this.getNotifications().pipe(map((items) => items.filter((n) => !n.read)));
   }
 
   createNotification(
@@ -39,7 +41,7 @@ export class NotificationService {
     reportId?: string
   ): Observable<AppNotification> {
     const notification: AppNotification = {
-      id: this.nextId.toString(),
+      id: Date.now().toString(),
       userId,
       title,
       message,
@@ -48,39 +50,29 @@ export class NotificationService {
       createdAt: new Date(),
       reportId
     };
-
-    this.notifications.push(notification);
-    this.nextId++;
     this.notificationSubject.next(notification);
-
-    // In a real app, this would send push notifications or emails
-    this.sendRealTimeNotification(notification);
-
-    return of(notification);
+    return new Observable((observer) => {
+      observer.next(notification);
+      observer.complete();
+    });
   }
 
   markAsRead(notificationId: string): Observable<boolean> {
-    const notification = this.notifications.find(n => n.id === notificationId);
-    if (notification) {
-      notification.read = true;
-      return of(true);
-    }
-    return of(false);
+    return this.http
+      .patch<any>(`${this.apiUrl}/${notificationId}/read`, {}, { headers: this.authHeaders })
+      .pipe(map(() => true));
   }
 
-  markAllAsRead(userId: string): Observable<boolean> {
-    const userNotifications = this.notifications.filter(n => n.userId === userId);
-    userNotifications.forEach(n => n.read = true);
-    return of(true);
+  markAllAsRead(_userId: string): Observable<boolean> {
+    return this.http
+      .patch<any>(`${this.apiUrl}/mark-all-read`, {}, { headers: this.authHeaders })
+      .pipe(map(() => true));
   }
 
   deleteNotification(notificationId: string): Observable<boolean> {
-    const index = this.notifications.findIndex(n => n.id === notificationId);
-    if (index !== -1) {
-      this.notifications.splice(index, 1);
-      return of(true);
-    }
-    return of(false);
+    return this.http
+      .delete<any>(`${this.apiUrl}/${notificationId}`, { headers: this.authHeaders })
+      .pipe(map(() => true));
   }
 
   getNotificationStream(): Observable<AppNotification> {
@@ -98,6 +90,30 @@ export class NotificationService {
         icon: '/assets/icons/notification-icon.png'
       });
     }
+  }
+
+  private get authHeaders(): HttpHeaders {
+    if (typeof localStorage === 'undefined') {
+      return new HttpHeaders();
+    }
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      return new HttpHeaders();
+    }
+    return new HttpHeaders({ Authorization: `Bearer ${token}` });
+  }
+
+  private normalizeNotification(notification: any): AppNotification {
+    return {
+      id: notification._id || notification.id,
+      userId: notification.userId,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type as NotificationType,
+      read: !!notification.read,
+      createdAt: new Date(notification.createdAt || Date.now()),
+      reportId: notification.reportId?._id || notification.reportId
+    };
   }
 
   requestNotificationPermission(): Observable<boolean> {

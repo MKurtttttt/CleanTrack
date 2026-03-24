@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NotificationService, AppNotification } from '../../services/notification';
 import { NotificationType } from '../../models/waste-report.model';
+import { Subscription, interval } from 'rxjs';
 
 @Component({
   selector: 'app-notifications',
@@ -9,14 +10,25 @@ import { NotificationType } from '../../models/waste-report.model';
   templateUrl: './notifications.html',
   styleUrl: './notifications.scss',
 })
-export class Notifications implements OnInit {
+export class Notifications implements OnInit, OnDestroy {
   notifications: AppNotification[] = [];
   isLoading = true;
+  private refreshSubscription: Subscription | null = null;
 
   constructor(private notificationService: NotificationService) {}
 
   ngOnInit() {
     this.loadNotifications();
+    // Set up auto-refresh every 30 seconds
+    this.refreshSubscription = interval(30000).subscribe(() => {
+      this.loadNotifications();
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.refreshSubscription) {
+      this.refreshSubscription.unsubscribe();
+    }
   }
 
   loadNotifications() {

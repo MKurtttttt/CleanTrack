@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService, LoginRequest } from '../../services/auth.service';
+import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-login',
@@ -47,12 +48,12 @@ import { AuthService, LoginRequest } from '../../services/auth.service';
             {{ errorMessage }}
           </div>
           
-          <button class="login-btn" (click)="onSubmit()" [disabled]="isLoading">
+          <button type="submit" class="login-btn" [disabled]="isLoading">
             <span *ngIf="!isLoading">🔐 Login</span>
             <span *ngIf="isLoading">🔄 Logging in...</span>
           </button>
 
-          <button class="cancel-btn" *ngIf="isLoading" (click)="cancelLogin()">
+          <button type="button" class="cancel-btn" *ngIf="isLoading" (click)="cancelLogin()">
             Cancel
           </button>
         </form>
@@ -361,52 +362,25 @@ export class LoginComponent {
   }
 
   onSubmit(): void {
+    if (!this.credentials.email || !this.credentials.password || this.isLoading) {
+      return;
+    }
+
     this.isLoading = true;
     this.errorMessage = '';
-
-    console.log('=== LOGIN ATTEMPT START ===');
-    console.log('Credentials:', this.credentials);
-    console.log('Backend URL:', 'http://localhost:5000/api/users/login');
-
-    // Quick connection test
-    console.log('Testing backend connection...');
-    fetch('http://localhost:5000/api/users/login', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(this.credentials)
-    }).then(response => {
-      console.log('Backend response status:', response.status);
-      console.log('Backend response headers:', response.headers);
-      
-      if (!response.ok) {
-        console.log('Response not OK:', response.status, response.statusText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      return response.json();
-    }).then(data => {
-      console.log('Login successful via fetch:', data);
-      console.log('=== LOGIN SUCCESS ===');
-      this.handleLoginSuccess(data);
-    }).catch(error => {
-      console.error('=== LOGIN ERROR ===');
-      console.error('Error type:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Full error:', error);
-      this.handleLoginError(error);
-    });
 
     // Add timeout to prevent infinite loading
     this.loginTimeout = setTimeout(() => {
       if (this.isLoading) {
-        console.log('=== LOGIN TIMEOUT ===');
         this.isLoading = false;
         this.errorMessage = 'Login request timed out. Please check your connection and try again.';
       }
     }, 10000); // 10 second timeout
+
+    this.authService.login(this.credentials).subscribe({
+      next: (response) => this.handleLoginSuccess(response),
+      error: (error: HttpErrorResponse) => this.handleLoginError(error)
+    });
   }
 
   handleLoginSuccess(response: any): void {
@@ -422,13 +396,9 @@ export class LoginComponent {
       
       // Redirect based on user role
       const user = response.user;
-      console.log('User role:', user.role);
-      
       if (user.role === 'RESIDENT') {
-        console.log('Redirecting to resident dashboard');
         this.router.navigate(['/resident']);
       } else {
-        console.log('Redirecting to admin dashboard');
         this.router.navigate(['/admin']);
       }
     } else {
@@ -436,27 +406,33 @@ export class LoginComponent {
     }
   }
 
-  handleLoginError(error: any): void {
+  handleLoginError(error: HttpErrorResponse | Error): void {
     clearTimeout(this.loginTimeout);
-    console.error('Login error:', error);
     this.isLoading = false;
-    
-    // Better error handling
-    if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED') || error.message.includes('NetworkError')) {
+
+    const errorMessage =
+      error instanceof HttpErrorResponse
+        ? (error.error?.message || error.message || '')
+        : (error.message || '');
+
+    if (
+      errorMessage.includes('Failed to fetch') ||
+      errorMessage.includes('ERR_CONNECTION_REFUSED') ||
+      errorMessage.includes('NetworkError') ||
+      (error instanceof HttpErrorResponse && error.status === 0)
+    ) {
       this.errorMessage = 'Cannot connect to server. Please ensure the backend is running on port 5000.';
-      console.error('NETWORK ERROR - Backend might be down');
-    } else if (error.message.includes('HTTP 401')) {
+    } else if (
+      (error instanceof HttpErrorResponse && error.status === 401) ||
+      errorMessage.toLowerCase().includes('invalid credentials')
+    ) {
       this.errorMessage = 'Invalid credentials. Please check your email and password.';
-      console.error('AUTHENTICATION ERROR - Invalid credentials');
-    } else if (error.message.includes('HTTP 500')) {
+    } else if (error instanceof HttpErrorResponse && error.status >= 500) {
       this.errorMessage = 'Server error. Please try again later.';
-      console.error('SERVER ERROR - Backend issue');
-    } else if (error.message.includes('CORS')) {
+    } else if (errorMessage.includes('CORS')) {
       this.errorMessage = 'CORS error. Please check backend configuration.';
-      console.error('CORS ERROR - Backend CORS issue');
     } else {
-      this.errorMessage = error.message || 'Login failed. Please try again.';
-      console.error('UNKNOWN ERROR:', error);
+      this.errorMessage = errorMessage || 'Login failed. Please try again.';
     }
   }
 }

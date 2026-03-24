@@ -2,8 +2,8 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { WasteCategory, Priority } from '../../models/waste-report.model';
+import { ReportService } from '../../services/report';
+import { finalize, timeout } from 'rxjs/operators';
 
 @Component({
   selector: 'app-report-form',
@@ -78,8 +78,9 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
               <option value="">Select category</option>
               <option value="GARBAGE_UNCOLLECTED">Uncollected Garbage</option>
               <option value="ILLEGAL_DUMPING">Illegal Dumping</option>
-              <option value="BURNING_GARBAGE">Burning Garbage</option>
-              <option value="CLOGGED_DRAINAGE">Clogged Drainage</option>
+              <option value="WASTE_PILE_UP">Waste Pile-Up</option>
+              <option value="RECYCLABLE_WASTE">Recyclable Waste</option>
+              <option value="HAZARDOUS_WASTE">Hazardous Waste</option>
               <option value="OTHER">Other</option>
             </select>
           </div>
@@ -154,13 +155,28 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
 
         <!-- Submit Button -->
         <div class="form-actions">
+          <div *ngIf="successMessage" class="submit-success">
+            <div class="success-icon">✅</div>
+            <div>{{ successMessage }}</div>
+          </div>
+          <div *ngIf="submitError" class="submit-error">
+            <div class="error-icon">⚠️</div>
+            <div>{{ submitError }}</div>
+          </div>
           <button 
             type="submit" 
             class="submit-btn" 
             [disabled]="isSubmitting || !isFormValid()"
+            [class.submitting]="isSubmitting"
           >
-            <span *ngIf="!isSubmitting">🚮 Submit Report</span>
-            <span *ngIf="isSubmitting">🔄 Submitting...</span>
+            <span *ngIf="!isSubmitting" class="submit-content">
+              <span class="submit-icon">🚮</span>
+              <span>Submit Report</span>
+            </span>
+            <span *ngIf="isSubmitting" class="submitting-content">
+              <div class="spinner"></div>
+              <span>Submitting...</span>
+            </span>
           </button>
         </div>
       </form>
@@ -169,10 +185,21 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
       <div class="modal-overlay" [class.open]="showSuccessModal" (click)="closeModal()">
         <div class="modal" (click)="$event.stopPropagation()">
           <div class="modal-icon">✅</div>
-          <h3>Report Submitted!</h3>
-          <p>Your waste report has been successfully submitted. Our team will review it and take appropriate action.</p>
+          <h3>Report Submitted Successfully!</h3>
+          <p>Your waste report has been successfully submitted and will be reviewed by our team.</p>
           <div class="modal-id">Reference ID: #{{ reportId }}</div>
-          <button class="modal-btn" (click)="closeModal()">Done</button>
+          <div class="modal-details">
+            <p><strong>What happens next?</strong></p>
+            <ul>
+              <li>Our team will review your report within 24 hours</li>
+              <li>You'll receive updates on the status</li>
+              <li>Barangay officials have been notified</li>
+            </ul>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn secondary" (click)="closeModal()">View My Reports</button>
+            <button class="modal-btn primary" (click)="showSuccessModal = false; resetForm()">Submit Another</button>
+          </div>
         </div>
       </div>
     </div>
@@ -259,7 +286,7 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
     .photo-upload-area {
       border: 2px dashed rgba(255,255,255,0.2);
       border-radius: 16px;
-      padding: 40px;
+      padding: 20px;
       text-align: center;
       transition: border-color 0.3s, background 0.3s;
       position: relative;
@@ -267,6 +294,7 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
     }
 
     .photo-upload-area:hover {
@@ -311,20 +339,28 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
     .image-preview-container {
       position: relative;
       width: 100%;
-      max-height: 300px;
+      max-width: 100%;
+      height: 320px;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.2);
     }
 
     .image-preview-container img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       border-radius: 12px;
+      display: block;
     }
 
     .remove-image-btn {
       position: absolute;
-      top: -10px;
-      right: -10px;
+      top: 10px;
+      right: 10px;
       background: var(--danger);
       color: white;
       border: none;
@@ -459,6 +495,39 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
       margin-top: 40px;
     }
 
+    .submit-error {
+      background: rgba(232, 92, 58, 0.12);
+      border: 1px solid rgba(232, 92, 58, 0.25);
+      color: var(--danger);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .submit-success {
+      background: rgba(57, 224, 122, 0.12);
+      border: 1px solid rgba(57, 224, 122, 0.3);
+      color: var(--green-neon);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .error-icon, .success-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
     .submit-btn {
       background: var(--green-neon);
       color: var(--dark);
@@ -470,6 +539,40 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
       cursor: pointer;
       transition: transform 0.2s, box-shadow 0.2s;
       font-family: 'DM Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 56px;
+    }
+
+    .submit-btn.submitting {
+      background: var(--green-neon);
+      opacity: 0.8;
+    }
+
+    .submit-content, .submitting-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .submit-icon {
+      font-size: 1.2rem;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top: 2px solid #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     .submit-btn:hover:not(:disabled) {
@@ -506,7 +609,7 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
       border: 1px solid rgba(57,224,122,0.2);
       border-radius: 24px;
       padding: 40px;
-      max-width: 480px;
+      max-width: 520px;
       width: 90%;
       text-align: center;
     }
@@ -521,6 +624,7 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
       font-weight: 800;
       font-size: 1.5rem;
       margin-bottom: 10px;
+      color: var(--green-neon);
     }
 
     .modal p {
@@ -543,14 +647,57 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
       margin-bottom: 24px;
     }
 
+    .modal-details {
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .modal-details p {
+      margin-bottom: 12px;
+      color: var(--white);
+    }
+
+    .modal-details ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--text-muted);
+    }
+
+    .modal-details li {
+      margin-bottom: 8px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
     .modal-btn {
-      background: var(--green-neon);
-      color: var(--dark);
       border: none;
       border-radius: 8px;
       padding: 12px 24px;
       font-weight: 600;
       cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .modal-btn.primary {
+      background: var(--green-neon);
+      color: var(--dark);
+    }
+
+    .modal-btn.secondary {
+      background: rgba(255,255,255,0.1);
+      color: var(--white);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .modal-btn:hover {
+      transform: translateY(-2px);
     }
 
     @media (max-width: 768px) {
@@ -560,6 +707,14 @@ import { WasteCategory, Priority } from '../../models/waste-report.model';
       
       .form-container {
         padding: 20px;
+      }
+
+      .photo-upload-area {
+        min-height: 180px;
+      }
+
+      .image-preview-container {
+        height: 220px;
       }
     }
   `]
@@ -572,7 +727,7 @@ export class ReportForm {
     severity: 'Medium',
     houseNumber: '',
     street: '',
-    barangay: 'Malabanias' // Fixed barangay
+    barangay: 'Central Barangay'
   };
 
   isSubmitting = false;
@@ -582,11 +737,27 @@ export class ReportForm {
   showSuccessModal = false;
   reportId = '';
   fileInput: HTMLInputElement | undefined;
+  submitError = '';
+  successMessage = '';
 
   constructor(
-    private http: HttpClient,
+    private reportService: ReportService,
     private router: Router
-  ) {}
+  ) {
+    if (typeof localStorage !== 'undefined') {
+      const userStr = localStorage.getItem('current_user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user?.barangay) {
+            this.report.barangay = user.barangay;
+          }
+        } catch {
+          // Keep default barangay when stored user data is invalid.
+        }
+      }
+    }
+  }
 
   onFileSelected(event: any): void {
     const file = event.target.files[0];
@@ -623,46 +794,59 @@ export class ReportForm {
     if (!this.isFormValid()) return;
 
     this.isSubmitting = true;
+    this.submitError = '';
+    this.successMessage = '';
 
     // Create form data for file upload
     const formData = new FormData();
     formData.append('title', this.report.title);
     formData.append('description', this.report.description);
     formData.append('category', this.report.category);
-    formData.append('severity', this.report.severity);
-    formData.append('houseNumber', this.report.houseNumber);
-    formData.append('street', this.report.street);
-    formData.append('barangay', this.report.barangay);
+    formData.append('priority', this.mapSeverityToPriority(this.report.severity));
+    formData.append('location[latitude]', '15.1474');
+    formData.append('location[longitude]', '120.5957');
+    formData.append('location[address]', `${this.report.houseNumber} ${this.report.street}, ${this.report.barangay}`);
+    formData.append('location[barangay]', this.report.barangay);
+    formData.append('location[city]', 'Angeles City');
     
     if (this.selectedFile) {
       formData.append('image', this.selectedFile);
     }
 
-    // Get user info from localStorage
-    const userStr = localStorage.getItem('current_user');
-    const user = userStr ? JSON.parse(userStr) : null;
-    
-    if (user) {
-      formData.append('reportedBy', user.email);
-      formData.append('userId', user._id || user.id);
-    }
-
-    this.http.post('http://localhost:5000/api/waste-reports', formData).subscribe({
-      next: (response: any) => {
-        console.log('Report submitted successfully:', response);
+    this.reportService.createReport(formData).pipe(
+      timeout(15000),
+      finalize(() => {
         this.isSubmitting = false;
-        this.reportId = response.report?._id || response.id || Date.now().toString();
+      })
+    ).subscribe({
+      next: (response: any) => {
+        this.isSubmitting = false;
+        this.reportId = response._id || response.id || Date.now().toString();
+        this.successMessage = `Report submitted successfully! Reference ID: #${this.reportId}`;
         this.showSuccessModal = true;
         
-        // Reset form
-        this.resetForm();
+        // Show success message for 3 seconds, then navigate
+        setTimeout(() => {
+          this.showSuccessModal = false;
+          this.resetForm();
+          this.router.navigate(['/resident/reports']);
+        }, 3000);
       },
       error: (error) => {
-        console.error('Error submitting report:', error);
-        this.isSubmitting = false;
-        alert('Error submitting report. Please try again.');
+        console.error('Report submission error:', error);
+        this.submitError = error?.error?.message || error?.message || 'Error submitting report. Please try again.';
+        // Clear error after 5 seconds
+        setTimeout(() => {
+          this.submitError = '';
+        }, 5000);
       }
     });
+  }
+
+  private mapSeverityToPriority(severity: string): string {
+    if (severity === 'High') return 'URGENT';
+    if (severity === 'Medium') return 'HIGH';
+    return 'MEDIUM';
   }
 
   resetForm(): void {
@@ -673,14 +857,17 @@ export class ReportForm {
       severity: 'Medium',
       houseNumber: '',
       street: '',
-      barangay: 'Malabanias'
+      barangay: this.report.barangay || 'Central Barangay'
     };
     this.selectedFile = null;
     this.imagePreview = null;
+    this.submitError = '';
+    this.successMessage = '';
   }
 
   closeModal(): void {
     this.showSuccessModal = false;
+    this.resetForm();
     this.router.navigate(['/resident/reports']);
   }
 }

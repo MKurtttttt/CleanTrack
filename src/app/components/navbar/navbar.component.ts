@@ -1,15 +1,15 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   template: `
     <nav class="navbar">
-      <a href="#" class="nav-logo" (click)="goHome()">
+      <a href="#" class="nav-logo" (click)="goHome($event)">
         <div class="logo-icon">🌿</div>
         CleanTrack
       </a>
@@ -22,11 +22,12 @@ import { AuthService } from '../../services/auth.service';
       </ul>
 
       <ul class="nav-links" *ngIf="isLoggedIn">
-        <li><a href="/dashboard">Dashboard</a></li>
-        <li><a href="/reports">Reports</a></li>
-        <li><a href="/map">Map</a></li>
-        <li><a href="/notifications">Notifications</a></li>
-        <li><a href="#" (click)="logout()" class="nav-cta">Logout</a></li>
+        <li *ngIf="isAdminView"><a [routerLink]="dashboardRoute">Dashboard</a></li>
+        <li *ngIf="!isAdminView"><a [routerLink]="reportRoute">Report</a></li>
+        <li *ngIf="isAdminView"><a [routerLink]="reportsRoute">Reports</a></li>
+        <li><a [routerLink]="mapRoute">Map</a></li>
+        <li><a [routerLink]="notificationsRoute">Notifications</a></li>
+        <li><a href="#" (click)="logout($event)" class="nav-cta">Logout</a></li>
       </ul>
     </nav>
   `,
@@ -78,6 +79,7 @@ import { AuthService } from '../../services/auth.service';
 })
 export class NavbarComponent {
   isLoggedIn = false;
+  currentRole = '';
 
   constructor(
     private router: Router,
@@ -85,18 +87,41 @@ export class NavbarComponent {
   ) {
     this.authService.currentUser$.subscribe(user => {
       this.isLoggedIn = !!user;
+      this.currentRole = user?.role || '';
     });
   }
 
-  goHome() {
-    if (this.isLoggedIn) {
-      this.router.navigate(['/dashboard']);
-    } else {
-      this.router.navigate(['/']);
-    }
+  get isAdminView(): boolean {
+    return this.currentRole === 'ADMIN' || this.currentRole === 'BARANGAY_OFFICIAL' || this.currentRole === 'WASTE_MANAGEMENT';
   }
 
-  logout() {
+  get dashboardRoute(): string {
+    return this.isAdminView ? '/admin/dashboard' : '/resident';
+  }
+
+  get reportsRoute(): string {
+    return this.isAdminView ? '/admin/reports' : '/resident/reports';
+  }
+
+  get mapRoute(): string {
+    return this.isAdminView ? '/admin/map' : '/resident/map';
+  }
+
+  get reportRoute(): string {
+    return '/resident/report';
+  }
+
+  get notificationsRoute(): string {
+    return this.isAdminView ? '/admin/notifications' : '/resident/notifications';
+  }
+
+  goHome(event: Event) {
+    event.preventDefault();
+    this.router.navigate([this.isLoggedIn ? this.dashboardRoute : '/']);
+  }
+
+  logout(event: Event) {
+    event.preventDefault();
     this.authService.logout();
     this.router.navigate(['/login']);
   }
